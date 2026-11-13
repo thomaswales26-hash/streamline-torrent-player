@@ -11,6 +11,7 @@ const fallbackTrackers = [
   "wss://tracker.openwebtorrent.com",
   "wss://tracker.btorrent.xyz",
 ];
+const videoFilePattern = /\.(3gp|asf|avi|divx|flv|m2ts|m4v|mkv|mov|mp4|mpeg|mpg|mts|ogm|ogv|rmvb|ts|vob|webm|wmv)$/i;
 let mainWindow;
 let torrentClient;
 let torrentServer;
@@ -52,8 +53,11 @@ function formatDuration(milliseconds) {
 
 function torrentState(torrent) {
   const video = torrent.files
-    ?.filter((file) => /\.(mp4|m4v|mov|mkv|webm|avi)$/i.test(file.name))
+    ?.filter((file) => videoFilePattern.test(file.name))
     .sort((a, b) => b.length - a.length)[0];
+  const metadataReady = Boolean(torrent.metadata);
+  const fileCount = torrent.files?.length || 0;
+  const primaryExtension = path.extname(video?.name || torrent.files?.[0]?.name || "").slice(1).toUpperCase();
   const serverAddress = torrentServer?.address();
   const streamUrl =
     video && serverAddress && typeof serverAddress !== "string"
@@ -63,7 +67,11 @@ function torrentState(torrent) {
   return {
     id: torrent.infoHash,
     title: torrent.name || torrent.infoHash,
-    meta: video ? `${path.extname(video.name).slice(1).toUpperCase()} video • Streaming priority` : "Downloading metadata…",
+    meta: metadataReady
+      ? video
+        ? `${primaryExtension || "VIDEO"} • Streaming priority • ${fileCount} ${fileCount === 1 ? "file" : "files"}`
+        : `${primaryExtension || "TORRENT"} • Metadata ready • ${fileCount} ${fileCount === 1 ? "file" : "files"}`
+      : `Finding metadata • ${torrent.numPeers} ${torrent.numPeers === 1 ? "peer" : "peers"}`,
     progress: torrent.progress * 100,
     size: formatBytes(torrent.length),
     downloaded: formatBytes(torrent.downloaded),
@@ -123,16 +131,21 @@ async function initializeTorrentEngine() {
           destroyStoreOnDestroy: false,
         },
         (readyTorrent) => {
-          const video = readyTorrent.files
-            .filter((file) => /\.(mp4|m4v|mov|mkv|webm|avi)$/i.test(file.name))
-            .sort((a, b) => b.length - a.length)[0];
-
-          // Prioritize the primary video while still downloading every file.
-          if (video) video.select(10);
-          logEngine(`Torrent metadata ready: ${readyTorrent.infoHash}`);
+          logEngine(`Torrent storage ready: ${readyTorrent.infoHash}`);
           publishTorrentStates();
         },
       );
+
+      const onMetadata = () => {
+        const video = torrent.files
+          .filter((file) => videoFilePattern.test(file.name))
+          .sort((a, b) => b.length - a.length)[0];
+        if (video) video.select(10);
+        logEngine(`Torrent metadata loaded: ${torrent.infoHash} (${torrent.files.length} files)`);
+        publishTorrentStates();
+      };
+      if (torrent.metadata) queueMicrotask(onMetadata);
+      else torrent.once("metadata", onMetadata);
 
       const onInfoHash = () => {
         if (settled) return;

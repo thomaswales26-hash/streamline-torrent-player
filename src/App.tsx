@@ -128,6 +128,7 @@ export default function App() {
   const [activeNav, setActiveNav] = useState("All Torrents");
   const [query, setQuery] = useState("");
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [magnet, setMagnet] = useState("");
@@ -136,6 +137,7 @@ export default function App() {
   const [engineError, setEngineError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const selected = torrents.find((torrent) => torrent.id === selectedId) ?? torrents[0] ?? initialTorrents[0];
 
@@ -172,6 +174,20 @@ export default function App() {
     if (isPlaying) void video.play().catch(() => setIsPlaying(false));
     else video.pause();
   }, [isPlaying, selected.streamUrl]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === playerRef.current);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await playerRef.current?.requestFullscreen();
+    }
+  }
 
   const visibleTorrents = torrents.filter((torrent) => {
     const matchesSearch = torrent.title.toLowerCase().includes(query.toLowerCase());
@@ -407,7 +423,11 @@ export default function App() {
 
             <section className="flex min-w-0 flex-col overflow-y-auto bg-white">
               <div className="p-5 pb-0">
-                <div className="player group relative aspect-video overflow-hidden rounded-2xl bg-[#121613] shadow-[0_14px_40px_rgba(20,19,17,.16)]">
+                <div
+                  ref={playerRef}
+                  onDoubleClick={() => void toggleFullscreen()}
+                  className="player group relative aspect-video overflow-hidden rounded-2xl bg-[#121613] shadow-[0_14px_40px_rgba(20,19,17,.16)]"
+                >
                   {selected.streamUrl ? (
                     <video
                       ref={videoRef}
@@ -426,7 +446,16 @@ export default function App() {
                     <div className="rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium backdrop-blur-md">
                       PLAYING WHILE DOWNLOADING
                     </div>
-                    <button className="ml-auto opacity-80 hover:opacity-100">{icons.cast}</button>
+                    <div className="ml-auto flex items-center gap-3">
+                      <button className="opacity-80 hover:opacity-100">{icons.cast}</button>
+                      <button
+                        onClick={() => void toggleFullscreen()}
+                        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/25 opacity-90 backdrop-blur-md hover:bg-black/40 hover:opacity-100"
+                      >
+                        {icons.full}
+                      </button>
+                    </div>
                   </div>
                   {!isPlaying && (
                     <button

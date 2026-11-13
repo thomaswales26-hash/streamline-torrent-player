@@ -31,6 +31,19 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+.player:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  border-radius: 0;
+  background: #000;
+}
+
+.player:fullscreen video {
+  width: 100%;
+  height: 100%;
+}
+
 ::-webkit-scrollbar {
   width: 7px;
 }

@@ -50,6 +50,16 @@ jobs:
           path: packaging-${{ matrix.arch }}.log
           if-no-files-found: ignore
 
+      - name: Publish packaging diagnostics
+        if: always()
+        run: |
+          {
+            echo '### Packaging transcript'
+            echo '```text'
+            cat packaging-${{ matrix.arch }}.log 2>/dev/null || echo 'No packaging log was created.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

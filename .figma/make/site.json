@@ -1,1 +1,10 @@
-{}
+{
+  "description": "Download torrent files on macOS and stream videos while they download, making it easy to start watching without waiting for completion.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

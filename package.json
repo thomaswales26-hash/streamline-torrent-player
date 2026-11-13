@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "webtorrent": "^3.0.21"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -90,5 +91,16 @@
       "installLocation": "/Applications"
     },
     "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bufferutil",
+      "electron",
+      "esbuild",
+      "ip-set",
+      "node-datachannel",
+      "utf-8-validate",
+      "utp-native"
+    ]
   }
 }

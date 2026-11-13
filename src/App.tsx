@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type Torrent = {
-  id: number;
+  id: string | number;
   title: string;
   meta: string;
   progress: number;
@@ -13,6 +13,7 @@ type Torrent = {
   peers: number;
   status: "downloading" | "paused" | "complete";
   color: string;
+  streamUrl?: string;
 };
 
 const initialTorrents: Torrent[] = [
@@ -120,8 +121,8 @@ function Poster({ torrent, large = false }: { torrent: Torrent; large?: boolean 
 }
 
 export default function App() {
-  const [torrents, setTorrents] = useState(initialTorrents);
-  const [selectedId, setSelectedId] = useState(1);
+  const [torrents, setTorrents] = useState<Torrent[]>(() => (window.streamline ? [] : initialTorrents));
+  const [selectedId, setSelectedId] = useState<string | number>(1);
   const [activeNav, setActiveNav] = useState("All Torrents");
   const [query, setQuery] = useState("");
   const [isPlaying, setIsPlaying] = useState(true);
@@ -129,10 +130,24 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [magnet, setMagnet] = useState("");
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
+  const [addError, setAddError] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const selected = torrents.find((torrent) => torrent.id === selectedId) ?? torrents[0];
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const selected = torrents.find((torrent) => torrent.id === selectedId) ?? torrents[0] ?? initialTorrents[0];
 
   useEffect(() => {
+    if (window.streamline) {
+      void window.streamline.listTorrents().then((items) => {
+        setTorrents(items);
+        if (items[0]) setSelectedId(items[0].id);
+      });
+      return window.streamline.onTorrentUpdates((items) => {
+        setTorrents(items);
+        setSelectedId((current) => (items.some((item) => item.id === current) ? current : (items[0]?.id ?? current)));
+      });
+    }
+
     const timer = window.setInterval(() => {
       setTorrents((current) =>
         current.map((torrent) =>
@@ -145,6 +160,13 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isPlaying) void video.play().catch(() => setIsPlaying(false));
+    else video.pause();
+  }, [isPlaying, selected.streamUrl]);
+
   const visibleTorrents = torrents.filter((torrent) => {
     const matchesSearch = torrent.title.toLowerCase().includes(query.toLowerCase());
     const matchesNav =
@@ -154,7 +176,11 @@ export default function App() {
     return matchesSearch && matchesNav;
   });
 
-  function toggleTorrent(id: number) {
+  function toggleTorrent(id: string | number) {
+    if (window.streamline && typeof id === "string") {
+      void window.streamline.toggleTorrent(id);
+      return;
+    }
     setTorrents((current) =>
       current.map((torrent) =>
         torrent.id === id && torrent.status !== "complete"
@@ -164,8 +190,27 @@ export default function App() {
     );
   }
 
-  function addTorrent() {
+  async function addTorrent() {
     if (!magnet.trim() && !torrentFile) return;
+    setAddError("");
+    setIsAdding(true);
+
+    if (window.streamline) {
+      try {
+        const source = torrentFile ? new Uint8Array(await torrentFile.arrayBuffer()) : magnet.trim();
+        const added = await window.streamline.addTorrent(source);
+        setSelectedId(added.id);
+        setMagnet("");
+        setTorrentFile(null);
+        setShowAdd(false);
+      } catch (error) {
+        setAddError(error instanceof Error ? error.message : "Unable to add this torrent.");
+      } finally {
+        setIsAdding(false);
+      }
+      return;
+    }
+
     const newTorrent: Torrent = {
       id: Date.now(),
       title: torrentFile ? torrentFile.name.replace(/\.torrent$/i, "") : "New video download",
@@ -185,12 +230,14 @@ export default function App() {
     setMagnet("");
     setTorrentFile(null);
     setShowAdd(false);
+    setIsAdding(false);
   }
 
   function closeAddDialog() {
     setShowAdd(false);
     setMagnet("");
     setTorrentFile(null);
+    setAddError("");
   }
 
   const navItems = [
@@ -342,7 +389,18 @@ export default function App() {
             <section className="flex min-w-0 flex-col overflow-y-auto bg-white">
               <div className="p-5 pb-0">
                 <div className="player group relative aspect-video overflow-hidden rounded-2xl bg-[#121613] shadow-[0_14px_40px_rgba(20,19,17,.16)]">
-                  <Poster torrent={selected} large />
+                  {selected.streamUrl ? (
+                    <video
+                      ref={videoRef}
+                      src={selected.streamUrl}
+                      className="h-full w-full object-contain"
+                      playsInline
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                    />
+                  ) : (
+                    <Poster torrent={selected} large />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/20" />
                   <div className="absolute left-0 right-0 top-0 flex items-center p-4 text-white">
                     <div className="rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium backdrop-blur-md">
@@ -452,6 +510,9 @@ export default function App() {
                 className="h-24 w-full resize-none rounded-xl border border-[#dfdcd5] bg-white py-3 pl-10 pr-3 text-[12px] leading-5 text-[#3c3935] outline-none focus:border-[#d89b83]"
               />
             </div>
+            {addError && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-700">{addError}</p>
+            )}
             <div className="mt-4 flex items-center justify-between">
               <input
                 ref={fileInputRef}
@@ -476,10 +537,10 @@ export default function App() {
               </button>
               <button
                 onClick={addTorrent}
-                disabled={!magnet.trim() && !torrentFile}
+                disabled={isAdding || (!magnet.trim() && !torrentFile)}
                 className="rounded-lg bg-[#e95f34] px-4 py-2.5 text-[11px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Start download
+                {isAdding ? "Connecting…" : "Start download"}
               </button>
             </div>
           </div>

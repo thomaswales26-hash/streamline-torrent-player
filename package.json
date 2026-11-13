@@ -1,11 +1,20 @@
 {
-  "name": "figma-make-app",
+  "name": "streamline-torrent-player",
+  "productName": "Streamline",
   "private": true,
   "version": "1.0.0",
+  "description": "A native-style torrent video player for macOS.",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:desktop": "FIGMA_DESKTOP_BUILD=1 vite build",
+    "desktop": "pnpm build:desktop && electron .",
+    "package:mac": "pnpm build:desktop && electron-builder --mac dmg pkg",
+    "package:mac:x64": "pnpm build:desktop && electron-builder --mac dmg pkg --x64",
+    "package:mac:arm64": "pnpm build:desktop && electron-builder --mac dmg pkg --arm64",
+    "package:mac:universal": "pnpm build:desktop && electron-builder --mac dmg pkg --universal",
     "preview": "vite preview",
     "format": "oxfmt"
   },
@@ -14,14 +23,72 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
-    "tailwindcss": "^4.0.0",
-    "@tailwindcss/vite": "^4.0.0",
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0",
     "oxfmt": "^0.76.0",
+    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "vite": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.streamline.torrentplayer",
+    "productName": "Streamline",
+    "copyright": "Copyright © 2026 Streamline",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        "dmg",
+        "pkg"
+      ]
+    },
+    "dmg": {
+      "title": "Streamline ${version}",
+      "icon": "build/icon.png",
+      "backgroundColor": "#f2f1ed",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "pkg": {
+      "allowAnywhere": false,
+      "allowCurrentUserHome": true,
+      "allowRootDirectory": true,
+      "installLocation": "/Applications"
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   }
 }

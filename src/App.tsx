@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type Torrent = {
   id: number;
@@ -128,6 +128,8 @@ export default function App() {
   const [playerOpen, setPlayerOpen] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [magnet, setMagnet] = useState("");
+  const [torrentFile, setTorrentFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const selected = torrents.find((torrent) => torrent.id === selectedId) ?? torrents[0];
 
   useEffect(() => {
@@ -163,10 +165,10 @@ export default function App() {
   }
 
   function addTorrent() {
-    if (!magnet.trim()) return;
+    if (!magnet.trim() && !torrentFile) return;
     const newTorrent: Torrent = {
       id: Date.now(),
-      title: "New video download",
+      title: torrentFile ? torrentFile.name.replace(/\.torrent$/i, "") : "New video download",
       meta: "Analyzing metadata…",
       progress: 2,
       size: "2.14 GB",
@@ -181,7 +183,14 @@ export default function App() {
     setTorrents((current) => [newTorrent, ...current]);
     setSelectedId(newTorrent.id);
     setMagnet("");
+    setTorrentFile(null);
     setShowAdd(false);
+  }
+
+  function closeAddDialog() {
+    setShowAdd(false);
+    setMagnet("");
+    setTorrentFile(null);
   }
 
   const navItems = [
@@ -427,7 +436,7 @@ export default function App() {
                 <p className="mt-1 text-[11px] text-[#96928a]">Paste a magnet link to begin downloading.</p>
               </div>
               <button
-                onClick={() => setShowAdd(false)}
+                onClick={closeAddDialog}
                 className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-[#efede8] text-[#77736c]"
               >
                 {icons.close}
@@ -444,10 +453,30 @@ export default function App() {
               />
             </div>
             <div className="mt-4 flex items-center justify-between">
-              <button className="text-[11px] font-medium text-[#6f6b64] hover:text-[#2f2d29]">Choose .torrent file</button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".torrent,application/x-bittorrent"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setTorrentFile(file);
+                  if (file) setMagnet("");
+                  event.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex min-w-0 items-center gap-2 text-[11px] font-medium text-[#6f6b64] hover:text-[#2f2d29]"
+              >
+                <span className="shrink-0">{icons.plus}</span>
+                <span className="max-w-[230px] truncate">
+                  {torrentFile ? torrentFile.name : "Choose .torrent file"}
+                </span>
+              </button>
               <button
                 onClick={addTorrent}
-                disabled={!magnet.trim()}
+                disabled={!magnet.trim() && !torrentFile}
                 className="rounded-lg bg-[#e95f34] px-4 py-2.5 text-[11px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Start download

@@ -59,6 +59,11 @@ jobs:
             cat packaging-${{ matrix.arch }}.log 2>/dev/null || echo 'No packaging log was created.'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          transcript="$(tail -80 packaging-${{ matrix.arch }}.log 2>/dev/null || echo 'No packaging log was created.')"
+          transcript="${transcript//'%'/'%25'}"
+          transcript="${transcript//$'\n'/'%0A'}"
+          transcript="${transcript//$'\r'/'%0D'}"
+          echo "::error file=package.json,title=Packaging transcript::$transcript"
 
       - name: Upload installers
         uses: actions/upload-artifact@v4

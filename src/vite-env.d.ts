@@ -22,6 +22,7 @@ interface Window {
     toggleTorrent(infoHash: string): Promise<boolean>;
     showTorrent(infoHash: string): Promise<boolean>;
     listTorrents(): Promise<NativeTorrent[]>;
+    engineStatus(): Promise<{ ready: boolean; error: string | null }>;
     onTorrentUpdates(callback: (torrents: NativeTorrent[]) => void): () => void;
   };
 }

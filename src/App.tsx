@@ -131,6 +131,7 @@ export default function App() {
   const [magnet, setMagnet] = useState("");
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [addError, setAddError] = useState("");
+  const [engineError, setEngineError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -138,6 +139,9 @@ export default function App() {
 
   useEffect(() => {
     if (window.streamline) {
+      void window.streamline.engineStatus().then((status) => {
+        if (!status.ready) setEngineError(status.error || "Torrent engine is unavailable.");
+      });
       void window.streamline.listTorrents().then((items) => {
         setTorrents(items);
         if (items[0]) setSelectedId(items[0].id);
@@ -317,6 +321,15 @@ export default function App() {
                 className="h-9 w-48 rounded-lg border border-[#e6e3dc] bg-white pl-10 pr-3 text-[12px] text-[#3c3a36] outline-none transition focus:w-56 focus:border-[#d7a38f]"
               />
             </div>
+            {engineError && (
+              <button
+                onClick={() => setEngineError("")}
+                title={engineError}
+                className="rounded-lg bg-red-50 px-3 py-2 text-[10px] font-semibold text-red-700"
+              >
+                Engine unavailable
+              </button>
+            )}
             <button
               onClick={() => setShowAdd(true)}
               className="flex h-9 items-center gap-1.5 rounded-lg bg-[#252522] px-3.5 text-[12px] font-medium text-white shadow-sm transition hover:bg-[#3a3935]"

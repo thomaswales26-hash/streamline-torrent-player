@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const isMac = process.platform === "darwin";
@@ -13,6 +14,21 @@ const fallbackTrackers = [
 let mainWindow;
 let torrentClient;
 let torrentServer;
+let engineStatus = { ready: false, error: null };
+
+function logEngine(message, error) {
+  const details = error ? `${message}: ${error.stack || error.message || String(error)}` : message;
+  console.log(details);
+  try {
+    fs.mkdirSync(app.getPath("logs"), { recursive: true });
+    fs.appendFileSync(
+      path.join(app.getPath("logs"), "streamline.log"),
+      `[${new Date().toISOString()}] ${details}\n`,
+    );
+  } catch {
+    // Logging must never prevent the torrent engine from starting.
+  }
+}
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -67,6 +83,7 @@ function publishTorrentStates() {
 }
 
 async function initializeTorrentEngine() {
+  logEngine("Starting torrent engine");
   const { default: WebTorrent } = await import("webtorrent");
   torrentClient = new WebTorrent({
     maxConns: 200,
@@ -82,11 +99,16 @@ async function initializeTorrentEngine() {
   });
 
   torrentClient.on("error", (error) => {
-    console.error("Torrent engine error:", error);
+    logEngine("Torrent engine error", error);
   });
 
   torrentServer = torrentClient.createServer({ hostname: "127.0.0.1" });
-  torrentServer.listen(0, "127.0.0.1");
+  await new Promise((resolve, reject) => {
+    torrentServer.server.once("error", reject);
+    torrentServer.listen(0, "127.0.0.1", resolve);
+  });
+  engineStatus = { ready: true, error: null };
+  logEngine(`Torrent engine ready on port ${torrentServer.address().port}`);
 
   ipcMain.handle("torrent:add", async (_event, source) => {
     if (!source) throw new Error("A magnet link or torrent file is required.");
@@ -107,13 +129,23 @@ async function initializeTorrentEngine() {
 
           // Prioritize the primary video while still downloading every file.
           if (video) video.select(10);
+          logEngine(`Torrent metadata ready: ${readyTorrent.infoHash}`);
           publishTorrentStates();
-          settled = true;
-          resolve(torrentState(readyTorrent));
         },
       );
 
+      const onInfoHash = () => {
+        if (settled) return;
+        settled = true;
+        logEngine(`Torrent initialized: ${torrent.infoHash}`);
+        publishTorrentStates();
+        resolve(torrentState(torrent));
+      };
+      if (torrent.infoHash) queueMicrotask(onInfoHash);
+      else torrent.once("infoHash", onInfoHash);
+
       torrent.once("error", (error) => {
+        logEngine("Torrent failed", error);
         if (!settled) reject(error);
       });
     });
@@ -238,7 +270,17 @@ const menuTemplate = [
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-  await initializeTorrentEngine();
+  ipcMain.handle("torrent:status", () => engineStatus);
+  try {
+    await initializeTorrentEngine();
+  } catch (error) {
+    engineStatus = { ready: false, error: error.message || String(error) };
+    logEngine("Torrent engine failed to initialize", error);
+    dialog.showErrorBox(
+      "Streamline could not start its torrent engine",
+      `${engineStatus.error}\n\nDetails were saved to ${path.join(app.getPath("logs"), "streamline.log")}`,
+    );
+  }
   createWindow();
 
   app.on("activate", () => {

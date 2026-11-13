@@ -4,7 +4,8 @@ contextBridge.exposeInMainWorld("streamline", {
   addTorrent: (source) => ipcRenderer.invoke("torrent:add", source),
   toggleTorrent: (infoHash) => ipcRenderer.invoke("torrent:toggle", infoHash),
   showTorrent: (infoHash) => ipcRenderer.invoke("torrent:show", infoHash),
-  listTorrents: () => ipcRenderer.invoke("torrent:list"),
+  listTorrents: () => ipcRenderer.invoke("torrent:list").catch(() => []),
+  engineStatus: () => ipcRenderer.invoke("torrent:status"),
   onTorrentUpdates: (callback) => {
     const listener = (_event, torrents) => callback(torrents);
     ipcRenderer.on("torrent:updates", listener);

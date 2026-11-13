@@ -18,7 +18,8 @@ type NativeTorrent = {
 
 interface Window {
   streamline?: {
-    addTorrent(source: string | Uint8Array): Promise<NativeTorrent>;
+    chooseTorrent(): Promise<{ name: string; filePath: string } | null>;
+    addTorrent(source: string | Uint8Array | { filePath: string }): Promise<NativeTorrent>;
     toggleTorrent(infoHash: string): Promise<boolean>;
     showTorrent(infoHash: string): Promise<boolean>;
     listTorrents(): Promise<NativeTorrent[]>;

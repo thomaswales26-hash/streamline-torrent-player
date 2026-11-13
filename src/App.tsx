@@ -16,6 +16,8 @@ type Torrent = {
   streamUrl?: string;
 };
 
+type TorrentFileSelection = File | { name: string; filePath: string };
+
 const initialTorrents: Torrent[] = [
   {
     id: 1,
@@ -129,7 +131,7 @@ export default function App() {
   const [playerOpen, setPlayerOpen] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [magnet, setMagnet] = useState("");
-  const [torrentFile, setTorrentFile] = useState<File | null>(null);
+  const [torrentFile, setTorrentFile] = useState<TorrentFileSelection | null>(null);
   const [addError, setAddError] = useState("");
   const [engineError, setEngineError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -201,7 +203,11 @@ export default function App() {
 
     if (window.streamline) {
       try {
-        const source = torrentFile ? new Uint8Array(await torrentFile.arrayBuffer()) : magnet.trim();
+        const source = torrentFile
+          ? torrentFile instanceof File
+            ? new Uint8Array(await torrentFile.arrayBuffer())
+            : { filePath: torrentFile.filePath }
+          : magnet.trim();
         const added = await window.streamline.addTorrent(source);
         setSelectedId(added.id);
         setMagnet("");
@@ -408,6 +414,7 @@ export default function App() {
                       src={selected.streamUrl}
                       className="h-full w-full object-contain"
                       playsInline
+                      controls
                       onPlay={() => setIsPlaying(true)}
                       onPause={() => setIsPlaying(false)}
                     />
@@ -429,20 +436,22 @@ export default function App() {
                       {icons.play}
                     </button>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 text-white">
-                    <div className="mb-3 h-1 cursor-pointer overflow-hidden rounded-full bg-white/25">
-                      <div className="relative h-full w-[26%] rounded-full bg-[#eb6840]">
-                        <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow" />
+                  {!selected.streamUrl && (
+                    <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 text-white">
+                      <div className="mb-3 h-1 cursor-pointer overflow-hidden rounded-full bg-white/25">
+                        <div className="relative h-full w-[26%] rounded-full bg-[#eb6840]">
+                          <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? icons.pause : icons.play}</button>
+                        <button className="opacity-90">{icons.volume}</button>
+                        <span className="text-[10px] font-medium">18:42 / 1:12:08</span>
+                        <span className="ml-auto text-[10px] text-white/75">1080p</span>
+                        <button>{icons.full}</button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <button onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? icons.pause : icons.play}</button>
-                      <button className="opacity-90">{icons.volume}</button>
-                      <span className="text-[10px] font-medium">18:42 / 1:12:08</span>
-                      <span className="ml-auto text-[10px] text-white/75">1080p</span>
-                      <button>{icons.full}</button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -547,13 +556,34 @@ export default function App() {
                 }}
               />
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={async () => {
+                  if (window.streamline) {
+                    const selection = await window.streamline.chooseTorrent();
+                    if (selection) {
+                      setTorrentFile(selection);
+                      setMagnet("");
+                      setAddError("");
+                    }
+                  } else {
+                    fileInputRef.current?.click();
+                  }
+                }}
                 className="flex min-w-0 items-center gap-2 text-[11px] font-medium text-[#6f6b64] hover:text-[#2f2d29]"
               >
                 <span className="shrink-0">{icons.plus}</span>
                 <span className="max-w-[230px] truncate">
                   {torrentFile ? torrentFile.name : "Choose .torrent file"}
                 </span>
+              </button>
+              <button
+                onClick={() => {
+                  setTorrentFile(null);
+                  setMagnet("https://webtorrent.io/torrents/sintel.torrent");
+                  setAddError("");
+                }}
+                className="text-[10px] font-medium text-[#8b6254] hover:text-[#d8562e]"
+              >
+                Use test torrent
               </button>
               <button
                 onClick={addTorrent}

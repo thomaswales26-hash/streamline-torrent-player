@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("streamline", {
+  chooseTorrent: () => ipcRenderer.invoke("torrent:choose"),
   addTorrent: (source) => ipcRenderer.invoke("torrent:add", source),
   toggleTorrent: (infoHash) => ipcRenderer.invoke("torrent:toggle", infoHash),
   showTorrent: (infoHash) => ipcRenderer.invoke("torrent:show", infoHash),

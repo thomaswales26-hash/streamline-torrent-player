@@ -118,9 +118,31 @@ async function initializeTorrentEngine() {
   engineStatus = { ready: true, error: null };
   logEngine(`Torrent engine ready on port ${torrentServer.address().port}`);
 
+  ipcMain.handle("torrent:choose", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Choose a torrent file",
+      properties: ["openFile"],
+      filters: [{ name: "BitTorrent files", extensions: ["torrent"] }],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const filePath = result.filePaths[0];
+    return { name: path.basename(filePath), filePath };
+  });
+
   ipcMain.handle("torrent:add", async (_event, source) => {
     if (!source) throw new Error("A magnet link or torrent file is required.");
-    const torrentId = typeof source === "string" ? source : Buffer.from(source);
+    let torrentId;
+    if (typeof source === "string") {
+      torrentId = source;
+    } else if (source.filePath) {
+      if (path.extname(source.filePath).toLowerCase() !== ".torrent") {
+        throw new Error("Please choose a valid .torrent file.");
+      }
+      torrentId = fs.readFileSync(source.filePath);
+      logEngine(`Reading torrent file: ${path.basename(source.filePath)}`);
+    } else {
+      torrentId = Buffer.from(source);
+    }
 
     return new Promise((resolve, reject) => {
       let settled = false;

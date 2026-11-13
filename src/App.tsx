@@ -129,6 +129,8 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [playbackError, setPlaybackError] = useState("");
   const [playerOpen, setPlayerOpen] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [magnet, setMagnet] = useState("");
@@ -171,9 +173,18 @@ export default function App() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (isPlaying) void video.play().catch(() => setIsPlaying(false));
+    if (isPlaying) {
+      void video.play().catch(() => {
+        setIsPlaying(false);
+      });
+    }
     else video.pause();
   }, [isPlaying, selected.streamUrl]);
+
+  useEffect(() => {
+    setPlaybackError("");
+    setIsBuffering(Boolean(selected.streamUrl));
+  }, [selected.streamUrl]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === playerRef.current);
@@ -430,34 +441,63 @@ export default function App() {
                 >
                   {selected.streamUrl ? (
                     <video
+                      key={selected.streamUrl}
                       ref={videoRef}
                       src={selected.streamUrl}
                       className="h-full w-full object-contain"
                       playsInline
                       controls
+                      preload="auto"
+                      onCanPlay={() => {
+                        setIsBuffering(false);
+                        if (isPlaying) void videoRef.current?.play().catch(() => setIsPlaying(false));
+                      }}
+                      onWaiting={() => setIsBuffering(true)}
+                      onPlaying={() => setIsBuffering(false)}
                       onPlay={() => setIsPlaying(true)}
                       onPause={() => setIsPlaying(false)}
+                      onError={() => {
+                        const code = videoRef.current?.error?.code;
+                        setIsBuffering(false);
+                        setIsPlaying(false);
+                        setPlaybackError(
+                          code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+                            ? "This video's container or codec is not supported by the macOS player."
+                            : "Playback was interrupted. The torrent may need more downloaded data.",
+                        );
+                      }}
                     />
                   ) : (
                     <Poster torrent={selected} large />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/20" />
-                  <div className="absolute left-0 right-0 top-0 flex items-center p-4 text-white">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
+                  <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center p-4 text-white">
                     <div className="rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium backdrop-blur-md">
                       PLAYING WHILE DOWNLOADING
                     </div>
                     <div className="ml-auto flex items-center gap-3">
-                      <button className="opacity-80 hover:opacity-100">{icons.cast}</button>
+                      <button className="pointer-events-auto opacity-80 hover:opacity-100">{icons.cast}</button>
                       <button
                         onClick={() => void toggleFullscreen()}
                         title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/25 opacity-90 backdrop-blur-md hover:bg-black/40 hover:opacity-100"
+                        className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-lg bg-black/25 opacity-90 backdrop-blur-md hover:bg-black/40 hover:opacity-100"
                       >
                         {icons.full}
                       </button>
                     </div>
                   </div>
-                  {!isPlaying && (
+                  {isBuffering && selected.streamUrl && !playbackError && (
+                    <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[11px] font-medium text-white backdrop-blur-md">
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                      Buffering torrent…
+                    </div>
+                  )}
+                  {playbackError && (
+                    <div className="absolute left-1/2 top-1/2 w-[min(360px,80%)] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/70 p-4 text-center text-[11px] leading-5 text-white backdrop-blur-md">
+                      {playbackError}
+                    </div>
+                  )}
+                  {!isPlaying && !isBuffering && !playbackError && (
                     <button
                       onClick={() => setIsPlaying(true)}
                       className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 pl-1 text-[#2d2b27] shadow-xl backdrop-blur"

@@ -45,7 +45,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload packaging diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: Streamline-packaging-log-${{ matrix.arch }}
@@ -53,7 +53,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Publish packaging diagnostics
-        if: always()
+        if: failure()
         run: |
           {
             echo '### Packaging transcript'

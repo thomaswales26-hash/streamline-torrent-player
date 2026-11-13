@@ -2,6 +2,14 @@ const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 const path = require("node:path");
 
 const isMac = process.platform === "darwin";
+const fallbackTrackers = [
+  "udp://tracker.opentrackr.org:1337/announce",
+  "udp://open.stealth.si:80/announce",
+  "udp://tracker.torrent.eu.org:451/announce",
+  "udp://tracker.moeking.me:6969/announce",
+  "wss://tracker.openwebtorrent.com",
+  "wss://tracker.btorrent.xyz",
+];
 let mainWindow;
 let torrentClient;
 let torrentServer;
@@ -64,6 +72,7 @@ async function initializeTorrentEngine() {
     maxConns: 200,
     downloadLimit: -1,
     uploadLimit: -1,
+    tracker: { announce: fallbackTrackers },
     dht: true,
     lsd: true,
     utPex: true,
@@ -116,6 +125,18 @@ async function initializeTorrentEngine() {
     if (torrent.paused) torrent.resume();
     else torrent.pause();
     publishTorrentStates();
+    return true;
+  });
+
+  ipcMain.handle("torrent:show", async (_event, infoHash) => {
+    const torrent = await torrentClient.get(infoHash);
+    if (!torrent) return false;
+    const firstFile = torrent.files?.[0];
+    if (firstFile) {
+      shell.showItemInFolder(path.join(torrent.path, firstFile.path));
+    } else {
+      await shell.openPath(torrent.path);
+    }
     return true;
   });
 

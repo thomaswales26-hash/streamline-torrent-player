@@ -472,7 +472,14 @@ export default function App() {
                         {selected.status === "downloading" ? icons.pause : icons.play}
                         {selected.status === "downloading" ? "Pause download" : "Resume download"}
                       </button>
-                      <button className="flex h-9 items-center gap-2 rounded-lg border border-[#e5e1da] px-3.5 text-[11px] font-medium text-[#5e5a54] hover:bg-[#f7f5f1]">
+                      <button
+                        onClick={() => {
+                          if (window.streamline && typeof selected.id === "string") {
+                            void window.streamline.showTorrent(selected.id);
+                          }
+                        }}
+                        className="flex h-9 items-center gap-2 rounded-lg border border-[#e5e1da] px-3.5 text-[11px] font-medium text-[#5e5a54] hover:bg-[#f7f5f1]"
+                      >
                         Show in Finder
                       </button>
                       <button className="ml-auto text-[#aaa69e] hover:text-[#55514b]">{icons.more}</button>

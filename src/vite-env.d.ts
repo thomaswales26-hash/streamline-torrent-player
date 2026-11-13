@@ -20,6 +20,7 @@ interface Window {
   streamline?: {
     addTorrent(source: string | Uint8Array): Promise<NativeTorrent>;
     toggleTorrent(infoHash: string): Promise<boolean>;
+    showTorrent(infoHash: string): Promise<boolean>;
     listTorrents(): Promise<NativeTorrent[]>;
     onTorrentUpdates(callback: (torrents: NativeTorrent[]) => void): () => void;
   };
